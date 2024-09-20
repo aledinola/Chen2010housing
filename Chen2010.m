@@ -2,41 +2,19 @@
 %
 % Two endogenous states: a (financial assets), h (housing)
 % One exogenous state: z (stochastic earnings)
-%
-% Note that the decision variable d, the amount of housing-services
-% purchased by a renter, can be solved for analytically and so does not
-% need to be included in the code as a decision variable (instead the
-% analytic solution is just included in the return function as a formula)
-
-% Model has deterministic productivity growth g=0.015. You should
-% renormalize the model (to solve of the balanced growth path), but I can't
-% be bothered so I just ignore it (essentially I solve as if g=0).
 
 % I renamed two things: 
 %   Chen calls the stochastic process on earnings eta, I call it z.
 %   Chen calls the deterministic earnings as function of age epsilonj, I call it kappaj
 
-% The description of pensions in Chen (2010) is a bit of a mess.
-% The budget constraints include a term I(j)*b, which is presumably the pension.
-% There is a tau_p, which is presumably the payroll-tax.
-% Page 604 says: "In the initial steady state, we choose the replacement rate vartheta so that the payroll-tax 
-%         rate matches it empirical counterpart. Currently, the OASI (Old-Age and Survivors Insurance) 
-%         rate is 10.7 percent.22 This implies vartheta = 0.483."
-% I interpret this to mean that tau_p=0.107, and set b to balance the pension budget in eqm.
-% Chen (2010) relates b to vartheta in Definition 1 in appendix, confirming the above.
-% I eliminate vartheta from the model as it is not needed for anything [Having seen codes of Chen2010, he sometimes fixed
-% tau_p and solved for b, but sometimes fixed vartheta and solved for tau_p (and b) in eqm. This didn't make final paper, hence 
-% why he has vartheta which is essentially redundant.].
-
-% Chen interpolates choice of assets, but forces choice of housing onto
-% grid (his Appendix A.2). Here both are on grid, but grid for assets is vastly larger than
-% that used by Chen. The grid of exogenous shocks is also notably more
-% accurate here.
+clear;clc;close all
+addpath(genpath('C:\Users\aledi\Documents\GitHub\VFIToolkit-matlab\VFIToolkit-matlab'))
 
 %% 
 n_d=0; % share of time to invest in new human capital
-n_a=[201,31]; % Assets, Housing
-n_z=7; % Chen (2010) uses 7 points and Tauchen. I use 15 and Kirkby-Farmer-Tanaka-Toda (for discretizing life-cycle AR(1)).
+%n_a=[201,31]; % Assets, Housing
+n_a=[301,11]; % Assets, Housing
+n_z=7; % Chen (2010) uses 7 points and Tauchen. 
 
 N_j=66; % total number of periods
 Params.agejshifter=19; % starting age 20
@@ -50,7 +28,6 @@ Params.beta=0.9622;
 
 % Preferences
 Params.sigma=2; % curvature of utility
-Params.upsilon=0; % =0 implies a unit elasticity of substitution between the two types of consumption (consumption good and housing services)
 Params.theta=0.8954; % share of nondurable consumption in the utility function
 
 % Demographics
@@ -134,14 +111,39 @@ Params.sj=[0.9985995, 0.9985575, 0.998498, 0.9985075, 0.9986075, 0.998641, 0.998
 Params.sj(end)=0; % I need this for the accidental bequests calculations. Not sure how Chen (2010) treated it.
 
 %% Grids and exogenous shocks
-maxh=5; % maximum value of housing
-maxassets=10; % maximum value of assets
-% we want possibility of negative assets
-asset_grid=-(1-Params.gamma)*maxh+((1-Params.gamma)*maxh+maxassets)*linspace(0,1,n_a(1))';
-% Note: -(1-Params.gamma)*maxh is the minimum possible value of assets, and maxa is the maximum possible value
-h_grid=linspace(0,maxh,n_a(2))';
-a_grid=[asset_grid; h_grid]; % stacked column vector
 
+%% Grid for housing
+% Chen used 20 as maximum, 0 as minimum. Here 0 means that you are a renter
+minh   = 0;
+maxh   = 20; % maximum value of housing: 
+h_curv = 3.0;
+h_grid = minh + (maxh-minh)*linspace(0,1,n_a(2)).^h_curv';
+
+%% Grid for financial assets
+maxassets=100; % maximum value of assets. Chen used 100
+% we want possibility of negative assets
+a_curv = 3.0;
+
+% First, the negative part of the grid: equally spaced from 
+% -(1-Params.gamma)*maxh up to 0. Note that the max value of borrowing ever 
+% possible is (1-Params.gamma)*maxh
+n_a_neg = round(0.1*n_a(1));
+a_grid_neg = linspace(-(1-Params.gamma)*maxh,0,n_a_neg)';
+
+% Second, the positive part of the grid, NOT equally spaced but denser the
+% closer it is to 0.
+n_a_pos = n_a(1)-n_a_neg+1;
+a_grid_pos = 0+(maxassets-0)*linspace(0,1,n_a_pos).^a_curv';
+asset_grid = [a_grid_neg(1:n_a_neg-1);a_grid_pos];
+% Note: -(1-Params.gamma)*maxh is the minimum possible value of assets
+
+if ~isequal(length(asset_grid),n_a(1))
+    error('asset_grid must have exactly n_a(1) points')
+end
+
+%% Combined grids for endogenous state variables
+a_grid = [asset_grid; h_grid]; % stacked column vector
+% size(a_grid) = [sum(n_a),1]
 % kfttoptions.initialj1sigmaz=Params.sigma_z1;
 % kfttoptions.nSigmas=2; % plus/minus two std deviations as the max/min grid points
 % [z_grid_J, pi_z_J,jequaloneDistz,otheroutputs] = discretizeLifeCycleAR1_KFTT(0,Params.rho_z,Params.sigma_z_epsilon,n_z,N_j,kfttoptions);
@@ -149,26 +151,70 @@ a_grid=[asset_grid; h_grid]; % stacked column vector
 
 % Just for comparison, use Tauchen to see what the grid Chen (2010) would have had looks like
 tauchenoptions=struct();
-Tauchen_q=2; % plus/minus two std deviations as the max/min grid points % DONT KNOW WHAT Chen2010 actually used
-[z_grid,pi_z]=discretizeAR1_Tauchen(0,Params.rho_z,Params.sigma_z_epsilon,n_z,Tauchen_q,tauchenoptions);
-z_grid=exp(z_grid); % Ranges from 0.7 to 1.4
-% I will put the initial dist onto this grid
-% jequaloneDistz=MVNormal_ProbabilitiesOnGrid(z_grid,1,Params.sigma_z1,n_z); % No mention of the mean at initial age, so I use the mid-point of the grid
-% End up having most of the mass near the ends, so the variance of earnings will still fall with age. But much more moderate.
+Tauchen_q=sqrt(7/2); % plus/minus two std deviations as the max/min grid points % DONT KNOW WHAT Chen2010 actually used
+[z_grid_log,pi_z]=discretizeAR1_Tauchen(0,Params.rho_z,sqrt(Params.sigma_z_epsilon),n_z,Tauchen_q,tauchenoptions);
+z_grid=exp(z_grid_log); % Ranges from 0.7 to 1.4
+% Stationary distribution of pi_z
+aux = pi_z^1000;
+prob_stat = aux(1,:)';
+z_mean = dot(z_grid,prob_stat);
+z_grid = z_grid/z_mean;
 
-jequaloneDistz=[0;0;0;1;0;0;0]; % Just to make it so that income variance does increase with age
+%% Initial distribution of earnings "z" for age 1
+jequaloneDistz = discretize_normal(z_grid_log,sqrt(Params.sigma_z1));
+
+% -- As a check, compute the variance of log earnings over age
+
+% Step 1: Compute the distribution of z for each age, starting from the
+% distribution of log(z1). This is NOT the stationary distribution, of
+% course
+pilab = zeros(n_z,Params.Jr-1);
+pilab(:,1) = jequaloneDistz;
+for j=1:Params.Jr-1
+    pilab(:,j+1)=pi_z'*pilab(:,j);
+end
+
+% Step2: Compute mean and standard deviation of log(z) by age
+var_log_z = zeros(Params.Jr-1,1);
+for j=1:Params.Jr-1
+    log_z_mean = dot(z_grid_log,pilab(:,j));
+    var_log_z(j) = dot((z_grid_log-log_z_mean).^2,pilab(:,j));
+end
+
+figure
+plot(1:Params.Jr-1,var_log_z)
+xlabel('Age, j')
+title('Variance of log(z_t)')
+print('var_logs','-dpng')
+
+%% Age distribution
+AgeWeightParamNames={'mewj'};
+Params.mewj=ones(1,N_j);
+for jj=1:N_j-1
+    Params.mewj(jj+1)=Params.mewj(jj)*Params.sj(jj)/(1+Params.n); % iteratively apply formula that mewj is determined by conditional survival probabilities (sj) and population growth rate (n)
+end
+Params.mewj=Params.mewj/sum(Params.mewj); % Normalize total mass to one
+fracret = sum(Params.mewj(Params.Jr:end));
+
+%% Aggregate labor in efficiency units, N_agg
+N_agg = 0;
+for jj=1:Params.Jr-1
+    N_agg_jj = sum(z_grid.*pilab(:,jj));
+    N_agg   = N_agg + Params.kappaj(jj)*N_agg_jj*Params.mewj(jj);
+end
 
 d_grid=[]; % no d variable
+jequaloneDistz = gpuArray(jequaloneDistz);
 
 %% Return fn
 DiscountFactorParamNames={'beta','sj'};
 
-ReturnFn=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,upsilon,sigma,gamma,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b,Tr)...
-    Chen2010_ReturnFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,upsilon,sigma,gamma,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b,Tr);
+ReturnFn=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,sigma,gamma,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b,Tr)...
+    Chen2010_ReturnFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,sigma,gamma,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b,Tr);
 
 %% General eqm parameters
-Params.r=0.0635; % This is an initial guess, but it is also the value that Chen (2010) reports as being the initial stationary general eqm
-Params.Tr=0.05; % accidental bequests of assets and housing
+Params.r=0.06354260; % This is an initial guess, but it is also the value that Chen (2010) reports as being the initial stationary general eqm
+Params.Tr=0.04988135; % accidental bequests of assets and housing
 
 % Three other parameters are being determined in general equilibrium, but
 % we can shortcut for these. They are b, p and w.
@@ -178,17 +224,24 @@ Params.Tr=0.05; % accidental bequests of assets and housing
 % them (inside return function and elsewhere).
 Params.p=(Params.r+Params.delta_r)/(1+Params.r); % price of housing
 Params.w=(1-Params.alpha)*((Params.r+Params.delta_k)/Params.alpha)^(Params.alpha/(Params.alpha-1)); % wage
-
 % Because labor supply is exogenous you can actually figure out of b is without having to
 % solve general eqm (point 4 in Definition 1 of his Appendix A.1).
-Params.b=0.1;
-% This is an initial guess, and then we set b to clear the general eqm
-% below. It is just below the first creation of AggVars.
+%Params.b=0.1;
 
+% price of housing
+p=(Params.r+Params.delta_r)/(1+Params.r);
+% wage
+w=(1-Params.alpha)*((Params.r+Params.delta_k)/Params.alpha)^(Params.alpha/(Params.alpha-1));
+
+% Note that the pension balance condition is
+% b*fracret = tau_p*w*N
+% where fracret, N are exogenous
+Params.b = Params.tau_p*Params.w*N_agg/fracret;
 
 %% Solve the value function
 vfoptions.divideandconquer=1;
 vfoptions.level1n=[9,n_a(2)];
+vfoptions.verbose=1;
 [V,Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 % [V,Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid_J, pi_z_J, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 
@@ -198,14 +251,6 @@ vfoptions.level1n=[9,n_a(2)];
 % max(abs(V(:)-V2(:)))
 % max(abs(Policy(:)-Policy2(:)))
 
-%% Age distribution
-AgeWeightParamNames={'mewj'};
-Params.mewj=ones(1,N_j);
-for jj=1:N_j-1
-    Params.mewj(jj+1)=Params.mewj(jj)*Params.sj(jj)/(1+Params.n); % iteratively apply formula that mewj is determined by conditional survival probabilities (sj) and population growth rate (n)
-end
-Params.mewj=Params.mewj/sum(Params.mewj); % Normalize total mass to one
-
 %% Initial age 20 (period 1) distribution
 jequaloneDist=zeros([n_a,n_z],'gpuArray');
 % Everyone is born with zero assets and zero housing
@@ -214,60 +259,31 @@ jequaloneDist(zeroassetindex,1,:)=shiftdim(jequaloneDistz,-2); % initial dist of
 
 %% Agent distribution
 simoptions=struct(); % defaults
-% StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightParamNames,Policy,n_d,n_a,n_z,N_j,pi_z_J,Params,simoptions);
 StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightParamNames,Policy,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
 
 %% AggVars
 FnsToEvaluate.A=@(aprime,hprime,a,h,z) a;
 FnsToEvaluate.N=@(aprime,hprime,a,h,z,kappaj) kappaj*z;
 FnsToEvaluate.H=@(aprime,hprime,a,h,z) h; % housing
-FnsToEvaluate.Hr=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,upsilon,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b) (hprime==0)*Chen2010_HousingServicesFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,upsilon,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b); % rental housing=housing services used by renters
+FnsToEvaluate.Hr=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b) (hprime==0)*Chen2010_HousingServicesFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b); % rental housing=housing services used by renters
 FnsToEvaluate.pensiontaxrevenue=@(aprime,hprime,a,h,z,tau_p,w,kappaj) tau_p*w*kappaj*z;
 FnsToEvaluate.pensionspend=@(aprime,hprime,a,h,z,agej,Jr,b) (agej>=Jr)*b;
 FnsToEvaluate.accidentalbeqleft=@(aprime,hprime,a,h,z,r,sj,delta_o) (1+r)*aprime*(1-sj)+(1-delta_o)*hprime*(1-sj);
 
-% AggVars=EvalFnOnAgentDist_AggVars_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid_J,[],simoptions);
-AggVars=EvalFnOnAgentDist_AggVars_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,[],simoptions);
-
-% Note: Because labor supply is exogenous we can set b to clear the general eqm constraint directly, rather than solving for it as part of general eqm
-Params.b=Params.b*(AggVars.pensiontaxrevenue.Mean/AggVars.pensionspend.Mean);
-% This is essentially what Chen (2010) does but he does it on the replacement rate (vartheta) rather than the pension amount (b).
-
-%% Everything is working, now for general equilibrium
-GEPriceParamNames={'r','Tr'};
-
-GeneralEqmEqns.capitalmarkets=@(r,A,N,alpha,delta_k,Hr,delta_r) r-(alpha*((A-Hr*(1-((r+delta_r)/(1+r))))^(alpha-1))*(N^(1-alpha))-delta_k); % r=marginal product of capital, minus depreciation; with K'=A'-Hr'*(1-p), and p=(r+delta_r)/(1+r);
-GeneralEqmEqns.accidentalbequests=@(Tr,accidentalbeqleft,n) Tr-accidentalbeqleft/(1+n); % Eqn A.2 from Appendix of Chen2010
-
-%% Alright, solve for the general eqm
-heteroagentoptions=struct(); % defaults
-% [p_eqm,~,GECondns]=HeteroAgentStationaryEqm_Case1_FHorz(jequaloneDist,AgeWeightParamNames, n_d, n_a, n_z, N_j, [], pi_z_J, d_grid, a_grid, z_grid_J, ReturnFn, FnsToEvaluate, GeneralEqmEqns, Params, DiscountFactorParamNames, [], [], [], GEPriceParamNames,heteroagentoptions, simoptions, vfoptions);
-[p_eqm,~,GECondns]=HeteroAgentStationaryEqm_Case1_FHorz(jequaloneDist,AgeWeightParamNames, n_d, n_a, n_z, N_j, [], pi_z, d_grid, a_grid, z_grid, ReturnFn, FnsToEvaluate, GeneralEqmEqns, Params, DiscountFactorParamNames, [], [], [], GEPriceParamNames,heteroagentoptions, simoptions, vfoptions);
-
-% Update Params based on the general eqm
-Params.r=p_eqm.r;
-Params.Tr=p_eqm.Tr;
-
-Params.p=(Params.r+Params.delta_r)/(1+Params.r); % price of housing
-Params.w=(1-Params.alpha)*((Params.r+Params.delta_k)/Params.alpha)^(Params.alpha/(Params.alpha-1)); % wage
-
-%% A little bit of output about the general eqm
-
-% Some additional outputs
 FnsToEvaluate.Homeownership=@(aprime,hprime,a,h,z) (hprime>0);
 FnsToEvaluate.TotalWealth=@(aprime,hprime,a,h,z) a+h; % NOT SURE IF THIS IS CORRECT DEFINITION OF TOTAL WEALTH
 FnsToEvaluate.LoanToValueRatio=@(aprime,hprime,a,h,z) (hprime>0)*abs(aprime/hprime);
 FnsToEvaluate.earnings=@(aprime,hprime,a,h,z,w,kappaj) w*kappaj*z;
-FnsToEvaluate.consumption=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,upsilon,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b,Tr) Chen2010_ConsumptionFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,upsilon,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b,Tr);
-FnsToEvaluate.housingservices=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,upsilon,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b) Chen2010_HousingServicesFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,upsilon,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b);
+FnsToEvaluate.consumption=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b,Tr) Chen2010_ConsumptionFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b,Tr);
+FnsToEvaluate.housingservices=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b) Chen2010_HousingServicesFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b);
 
 
 % [V,Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid_J, pi_z_J, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 % StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightParamNames,Policy,n_d,n_a,n_z,N_j,pi_z_J,Params,simoptions);
 % AggVars=EvalFnOnAgentDist_AggVars_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid_J,[],simoptions);
 % AllStats=EvalFnOnAgentDist_AllStats_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid_J,simoptions);
-[V,Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
-StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightParamNames,Policy,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
+%[V,Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
+%StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightParamNames,Policy,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
 AggVars=EvalFnOnAgentDist_AggVars_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,[],simoptions);
 AllStats=EvalFnOnAgentDist_AllStats_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
 
@@ -323,6 +339,13 @@ hold off
 legend('consumption','housing services', 'earnings')
 title('Consumption, Housing Services and Earnings')
 
+Homeownership_5y = mean_k_width(AgeConditionalStats2.Homeownership.Mean,5);
+age_5y = Params.agejshifter+(1:5:N_j)';
+figure
+plot(age_5y(1:end-1),Homeownership_5y,'LineWidth',2)
+xlabel('Age')
+title('Homeownership rate (conditional on age)')
+print('own','-dpng')
 
 
 
