@@ -8,7 +8,8 @@
 %   Chen calls the deterministic earnings as function of age epsilonj, I call it kappaj
 
 clear;clc;close all
-addpath(genpath('C:\Users\aledi\Documents\GitHub\VFIToolkit-matlab\VFIToolkit-matlab'))
+%addpath(genpath('C:\Users\aledi\Documents\GitHub\VFIToolkit-matlab\VFIToolkit-matlab'))
+addpath(genpath('C:\Users\aledi\OneDrive\Documents\GitHub\VFIToolkit-matlab'))
 
 %% 
 n_d=0; % share of time to invest in new human capital
