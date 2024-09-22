@@ -8,8 +8,8 @@
 %   Chen calls the deterministic earnings as function of age epsilonj, I call it kappaj
 
 clear;clc;close all
-%addpath(genpath('C:\Users\aledi\Documents\GitHub\VFIToolkit-matlab\VFIToolkit-matlab'))
-addpath(genpath('C:\Users\aledi\OneDrive\Documents\GitHub\VFIToolkit-matlab'))
+addpath(genpath('C:\Users\aledi\Documents\GitHub\VFIToolkit-matlab\VFIToolkit-matlab'))
+%addpath(genpath('C:\Users\aledi\OneDrive\Documents\GitHub\VFIToolkit-matlab'))
 
 %% 
 n_d=0; % share of time to invest in new human capital
@@ -243,7 +243,9 @@ Params.b = Params.tau_p*Params.w*N_agg/fracret;
 vfoptions.divideandconquer=1;
 vfoptions.level1n=[9,n_a(2)];
 vfoptions.verbose=1;
+tic
 [V,Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
+time_vfi=toc;
 % [V,Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid_J, pi_z_J, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 
 % vfoptions.divideandconquer=0;
@@ -285,31 +287,17 @@ FnsToEvaluate.housingservices=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alp
 % AllStats=EvalFnOnAgentDist_AllStats_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid_J,simoptions);
 %[V,Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 %StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightParamNames,Policy,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
+
+tic
 AggVars=EvalFnOnAgentDist_AggVars_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,[],simoptions);
 AllStats=EvalFnOnAgentDist_AllStats_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
+time_stats=toc;
 
 K=AggVars.A.Mean-AggVars.Hr.Mean*(1-Params.p); % physical capital
 Y=(K^Params.alpha)*(AggVars.N.Mean^(1-Params.alpha)); % output
 
-% Chen (2010) Table 2 on page 605 reports the following
-fprintf('Quantitative properties of the benchmark economy \n')
-% Comments at end of each line are values in the paper for comparison
-fprintf('Targeted Variables \n')
-fprintf('Payroll tax rate is %1.3f \n',Params.tau_p) % 0.107
-fprintf('r is %1.2f%% \n',100*Params.r) % 6.35%
-fprintf('K/Y is %1.3f \n',K/Y) % 1.729
-fprintf('H/Y is %1.3f \n',AggVars.H.Mean/Y) % 1.075
-fprintf('Homeownership rate is %2.1f%% \n', 100*AggVars.Homeownership.Mean) % 65.0%
-fprintf('Nontargeted Variables \n')
-% fprintf('pH/(C+pH) is %2.1f \% \n',100*Params.p*AggVars.H.Mean/()) % 10.7% I SKIPPED AS CANT BE BOTHERED CREATING CONSUMPTION FN
-fprintf('Ho/(A+Ho) is %2.1f%% \n',100*AggVars.H.Mean/(AggVars.A.Mean+AggVars.H.Mean)) % 32.2%  % I think this is the correct calculation, not sure
-fprintf('Gini for total wealth is %1.2f \n',AllStats.TotalWealth.Gini) % 0.73
-fprintf('Gini for financial wealth is %1.2f \n',AllStats.A.Gini) % 0.93
-fprintf('Gini for housing is %1.2f \n',AllStats.H.Gini) % 0.52 % NOT SURE HOW RENTAL HOUSING SERVICES ARE TREATED HERE, GUESSING JUST AS ZEROS?
-fprintf('Mean loan-to-value ratio (for borrowers) is %2.1f \n',100*AggVars.LoanToValueRatio.Mean/AggVars.Homeownership.Mean) % 0.93
-
-
 % Chen2010, bottom of pg 603 says that the Gini coeff for labor income is 0.40
+tic
 simoptions.agegroupings=[1,Params.Jr]; % working age and retirees
 AgeConditionalStats=LifeCycleProfiles_FHorz_Case1(StationaryDist,Policy,FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
 AgeConditionalStats.earnings.Gini(1) % Substantially below 0.4
@@ -322,6 +310,8 @@ Params.b/AgeConditionalStats.earnings.Mean(1) % 0.46, so is correct
 % Plot some life-cycle profiles to see more about what is going on
 simoptions=struct(); % back to defaults
 AgeConditionalStats2=LifeCycleProfiles_FHorz_Case1(StationaryDist,Policy,FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
+
+time_life=toc;
 
 figure(1)
 subplot(3,1,1); plot(Params.agejshifter+Params.agej,AgeConditionalStats2.earnings.Mean)
@@ -347,6 +337,30 @@ plot(age_5y(1:end-1),Homeownership_5y,'LineWidth',2)
 xlabel('Age')
 title('Homeownership rate (conditional on age)')
 print('own','-dpng')
+
+%% Make table
+
+% Chen (2010) Table 2 on page 605 reports the following
+fprintf('Quantitative properties of the benchmark economy \n')
+% Comments at end of each line are values in the paper for comparison
+fprintf('Targeted Variables \n')
+fprintf('Payroll tax rate is %1.3f \n',Params.tau_p) % 0.107
+fprintf('r is %1.2f%% \n',100*Params.r) % 6.35%
+fprintf('K/Y is %1.3f \n',K/Y) % 1.729
+fprintf('H/Y is %1.3f \n',AggVars.H.Mean/Y) % 1.075
+fprintf('Homeownership rate is %2.1f%% \n', 100*AggVars.Homeownership.Mean) % 65.0%
+fprintf('Nontargeted Variables \n')
+% fprintf('pH/(C+pH) is %2.1f \% \n',100*Params.p*AggVars.H.Mean/()) % 10.7% I SKIPPED AS CANT BE BOTHERED CREATING CONSUMPTION FN
+fprintf('Ho/(A+Ho) is %2.1f%% \n',100*AggVars.H.Mean/(AggVars.A.Mean+AggVars.H.Mean)) % 32.2%  % I think this is the correct calculation, not sure
+fprintf('Gini for total wealth is %1.2f \n',AllStats.TotalWealth.Gini) % 0.73
+fprintf('Gini for financial wealth is %1.2f \n',AllStats.A.Gini) % 0.93
+fprintf('Gini for housing is %1.2f \n',AllStats.H.Gini) % 0.52 % NOT SURE HOW RENTAL HOUSING SERVICES ARE TREATED HERE, GUESSING JUST AS ZEROS?
+fprintf('Mean loan-to-value ratio (for borrowers) is %2.1f \n',100*AggVars.LoanToValueRatio.Mean/AggVars.Homeownership.Mean) % 0.93
+
+disp('RUNNING TIMES')
+fprintf('Time VFI: %f \n',time_vfi)
+fprintf('Time aggvars and stats: %f \n',time_stats)
+fprintf('Time life profiles: %f \n',time_life)
 
 
 
