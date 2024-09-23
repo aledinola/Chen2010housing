@@ -275,7 +275,7 @@ FnsToEvaluate.accidentalbeqleft=@(aprime,hprime,a,h,z,r,sj,delta_o) (1+r)*aprime
 
 FnsToEvaluate.Homeownership=@(aprime,hprime,a,h,z) (hprime>0);
 FnsToEvaluate.TotalWealth=@(aprime,hprime,a,h,z) a+h; % NOT SURE IF THIS IS CORRECT DEFINITION OF TOTAL WEALTH
-FnsToEvaluate.LoanToValueRatio=@(aprime,hprime,a,h,z) (hprime>0)*abs(aprime/hprime);
+FnsToEvaluate.LoanToValueRatio=@(aprime,hprime,a,h,z) (hprime>0)*abs(aprime/max(1e-8,hprime));
 FnsToEvaluate.earnings=@(aprime,hprime,a,h,z,w,kappaj) w*kappaj*z;
 FnsToEvaluate.consumption=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b,Tr) Chen2010_ConsumptionFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b,Tr);
 FnsToEvaluate.housingservices=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b) Chen2010_HousingServicesFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b);
@@ -309,7 +309,8 @@ Params.b/AgeConditionalStats.earnings.Mean(1) % 0.46, so is correct
 
 % Plot some life-cycle profiles to see more about what is going on
 simoptions=struct(); % back to defaults
-simoptions.whichstats(1) = 1; % only the mean
+simoptions.whichstats=zeros(1,7);
+simoptions.whichstats(1) = 1; %compute only the mean
 AgeConditionalStats2=LifeCycleProfiles_FHorz_Case1(StationaryDist,Policy,FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
 
 time_life=toc;
