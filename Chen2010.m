@@ -340,6 +340,14 @@ print('own','-dpng')
 
 %% Make table
 
+% Gini for financial wealth
+GiniA = AllStats.A.Gini;
+% StationaryDist(a,h,z,j). Compute the marginal distribution of assets "a"
+% and call it p
+StationaryDist_a = sum(gather(StationaryDist),[2,3,4]);
+[~, ~, ~, giniw] = lrzcurve(StationaryDist_a, asset_grid);
+GiniA2 = giniw;
+
 % Chen (2010) Table 2 on page 605 reports the following
 fprintf('Quantitative properties of the benchmark economy \n')
 % Comments at end of each line are values in the paper for comparison
@@ -352,9 +360,9 @@ fprintf('Homeownership rate is %2.1f%% \n', 100*AggVars.Homeownership.Mean) % 65
 fprintf('Nontargeted Variables \n')
 % fprintf('pH/(C+pH) is %2.1f \% \n',100*Params.p*AggVars.H.Mean/()) % 10.7% I SKIPPED AS CANT BE BOTHERED CREATING CONSUMPTION FN
 fprintf('Ho/(A+Ho) is %2.1f%% \n',100*AggVars.H.Mean/(AggVars.A.Mean+AggVars.H.Mean)) % 32.2%  % I think this is the correct calculation, not sure
-fprintf('Gini for total wealth is %1.2f \n',AllStats.TotalWealth.Gini) % 0.73
-fprintf('Gini for financial wealth is %1.2f \n',AllStats.A.Gini) % 0.93
-fprintf('Gini for housing is %1.2f \n',AllStats.H.Gini) % 0.52 % NOT SURE HOW RENTAL HOUSING SERVICES ARE TREATED HERE, GUESSING JUST AS ZEROS?
+fprintf('Gini for total wealth is %1.3f \n',AllStats.TotalWealth.Gini) % 0.73
+fprintf('Gini for financial wealth is %1.3f \n',GiniA2) % 0.93
+fprintf('Gini for housing is %1.3f \n',AllStats.H.Gini) % 0.52 % NOT SURE HOW RENTAL HOUSING SERVICES ARE TREATED HERE, GUESSING JUST AS ZEROS?
 fprintf('Mean loan-to-value ratio (for borrowers) is %2.1f \n',100*AggVars.LoanToValueRatio.Mean/AggVars.Homeownership.Mean) % 0.93
 
 disp('RUNNING TIMES')
