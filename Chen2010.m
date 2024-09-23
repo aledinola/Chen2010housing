@@ -309,6 +309,7 @@ Params.b/AgeConditionalStats.earnings.Mean(1) % 0.46, so is correct
 
 % Plot some life-cycle profiles to see more about what is going on
 simoptions=struct(); % back to defaults
+simoptions.whichstats(1) = 1; % only the mean
 AgeConditionalStats2=LifeCycleProfiles_FHorz_Case1(StationaryDist,Policy,FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
 
 time_life=toc;
@@ -341,7 +342,6 @@ print('own','-dpng')
 %% Make table
 
 % Gini for financial wealth
-GiniA = AllStats.A.Gini;
 % StationaryDist(a,h,z,j). Compute the marginal distribution of assets "a"
 % and call it p
 StationaryDist_a = sum(gather(StationaryDist),[2,3,4]);
