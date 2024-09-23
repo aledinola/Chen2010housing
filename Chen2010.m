@@ -1,5 +1,6 @@
 % Chen (2010) - A life-cycle analysis of social security with housing
-%
+% Written by R. Kirkby
+% Updated by A. Di Nola (on 23 Sept 2024)
 % Two endogenous states: a (financial assets), h (housing)
 % One exogenous state: z (stochastic earnings)
 
@@ -8,8 +9,8 @@
 %   Chen calls the deterministic earnings as function of age epsilonj, I call it kappaj
 
 clear;clc;close all
-addpath(genpath('C:\Users\aledi\Documents\GitHub\VFIToolkit-matlab\VFIToolkit-matlab'))
-%addpath(genpath('C:\Users\aledi\OneDrive\Documents\GitHub\VFIToolkit-matlab'))
+%addpath(genpath('C:\Users\aledi\Documents\GitHub\VFIToolkit-matlab\VFIToolkit-matlab'))
+addpath(genpath('C:\Users\aledi\OneDrive\Documents\GitHub\VFIToolkit-matlab'))
 
 %% 
 n_d=0; % share of time to invest in new human capital
@@ -264,7 +265,7 @@ jequaloneDist(zeroassetindex,1,:)=shiftdim(jequaloneDistz,-2); % initial dist of
 simoptions=struct(); % defaults
 StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightParamNames,Policy,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
 
-%% AggVars
+%% AggVars and AllStats
 FnsToEvaluate.A=@(aprime,hprime,a,h,z) a;
 FnsToEvaluate.N=@(aprime,hprime,a,h,z,kappaj) kappaj*z;
 FnsToEvaluate.H=@(aprime,hprime,a,h,z) h; % housing
@@ -275,18 +276,10 @@ FnsToEvaluate.accidentalbeqleft=@(aprime,hprime,a,h,z,r,sj,delta_o) (1+r)*aprime
 
 FnsToEvaluate.Homeownership=@(aprime,hprime,a,h,z) (hprime>0);
 FnsToEvaluate.TotalWealth=@(aprime,hprime,a,h,z) a+h; % NOT SURE IF THIS IS CORRECT DEFINITION OF TOTAL WEALTH
-FnsToEvaluate.LoanToValueRatio=@(aprime,hprime,a,h,z) (hprime>0)*abs(aprime/max(1e-8,hprime));
+FnsToEvaluate.LoanToValueRatio=@(aprime,hprime,a,h,z) (hprime>0)*abs(aprime/hprime);
 FnsToEvaluate.earnings=@(aprime,hprime,a,h,z,w,kappaj) w*kappaj*z;
 FnsToEvaluate.consumption=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b,Tr) Chen2010_ConsumptionFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b,Tr);
 FnsToEvaluate.housingservices=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b) Chen2010_HousingServicesFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b);
-
-
-% [V,Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid_J, pi_z_J, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
-% StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightParamNames,Policy,n_d,n_a,n_z,N_j,pi_z_J,Params,simoptions);
-% AggVars=EvalFnOnAgentDist_AggVars_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid_J,[],simoptions);
-% AllStats=EvalFnOnAgentDist_AllStats_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid_J,simoptions);
-%[V,Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
-%StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightParamNames,Policy,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
 
 tic
 AggVars=EvalFnOnAgentDist_AggVars_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,[],simoptions);
@@ -305,13 +298,20 @@ AllStats.earnings.Gini % 0.3, so still not 0.4
 
 % Quick look at the replacement rate
 Params.vartheta % 0.48
-Params.b/AgeConditionalStats.earnings.Mean(1) % 0.46, so is correct
+disp(Params.b/AgeConditionalStats.earnings.Mean(1)) % 0.46, so is correct
 
-% Plot some life-cycle profiles to see more about what is going on
+%% Life-cycle profiles 
 simoptions=struct(); % back to defaults
 simoptions.whichstats=zeros(1,7);
 simoptions.whichstats(1) = 1; %compute only the mean
 AgeConditionalStats2=LifeCycleProfiles_FHorz_Case1(StationaryDist,Policy,FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
+
+
+
+% 5-year bin
+FnsToEvaluate5.Homeownership=@(aprime,hprime,a,h,z) (hprime>0);
+simoptions.agegroupings=1:5:N_j; 
+AgeConditionalStats5=LifeCycleProfiles_FHorz_Case1(StationaryDist,Policy,FnsToEvaluate5,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
 
 time_life=toc;
 
@@ -332,10 +332,10 @@ hold off
 legend('consumption','housing services', 'earnings')
 title('Consumption, Housing Services and Earnings')
 
-Homeownership_5y = mean_k_width(AgeConditionalStats2.Homeownership.Mean,5);
-age_5y = Params.agejshifter+(1:5:N_j)';
+%Homeownership_5y = mean_k_width(AgeConditionalStats2.Homeownership.Mean,5);
+age_5y = Params.agejshifter+(1:5:N_j);
 figure
-plot(age_5y(1:end-1),Homeownership_5y,'LineWidth',2)
+plot(age_5y(1:end-1),AgeConditionalStats5.Homeownership.Mean(1:end-1),'LineWidth',2)
 xlabel('Age')
 title('Homeownership rate (conditional on age)')
 print('own','-dpng')
