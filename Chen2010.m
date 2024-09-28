@@ -14,7 +14,7 @@ addpath(genpath('C:\Users\aledi\Documents\GitHub\VFIToolkit-matlab\VFIToolkit-ma
 %% 
 n_d=0; % share of time to invest in new human capital
 %n_a=[201,31]; % Assets, Housing
-n_a=[301,11]; % Assets, Housing
+n_a=[401,11]; % Assets, Housing
 n_z=7; % Chen (2010) uses 7 points and Tauchen. 
 
 N_j=66; % total number of periods
@@ -264,8 +264,9 @@ jequaloneDist(zeroassetindex,1,:)=shiftdim(jequaloneDistz,-2); % initial dist of
 simoptions=struct(); % defaults
 StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightParamNames,Policy,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
 
-%% AggVars
+%% Set some FnsToEvaluate for AggVars
 FnsToEvaluate.A=@(aprime,hprime,a,h,z) a;
+FnsToEvaluate.LTV_pos=@(aprime,hprime,a,h,z) f_LTV(aprime,hprime,a,h,z)>0;
 FnsToEvaluate.N=@(aprime,hprime,a,h,z,kappaj) kappaj*z;
 FnsToEvaluate.H=@(aprime,hprime,a,h,z) h; % housing
 FnsToEvaluate.Hr=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b) (hprime==0)*Chen2010_HousingServicesFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b); % rental housing=housing services used by renters
@@ -275,19 +276,22 @@ FnsToEvaluate.accidentalbeqleft=@(aprime,hprime,a,h,z,r,sj,delta_o) (1+r)*aprime
 
 FnsToEvaluate.Homeownership=@(aprime,hprime,a,h,z) (hprime>0);
 FnsToEvaluate.TotalWealth=@(aprime,hprime,a,h,z) a+h; % NOT SURE IF THIS IS CORRECT DEFINITION OF TOTAL WEALTH
-FnsToEvaluate.LoanToValueRatio=@(aprime,hprime,a,h,z) (hprime>0)*abs(aprime/max(1e-8,hprime));
+FnsToEvaluate.LoanToValueRatio=@(aprime,hprime,a,h,z) f_LTV(aprime,hprime,a,h,z);
 FnsToEvaluate.earnings=@(aprime,hprime,a,h,z,w,kappaj) w*kappaj*z;
 FnsToEvaluate.consumption=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b,Tr) Chen2010_ConsumptionFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b,Tr);
 FnsToEvaluate.housingservices=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b) Chen2010_HousingServicesFn(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alpha,delta_k,delta_o,delta_r,agej,Jr,b);
 
+%% Evaluate loan to value ratio on grid
+% FnsToEvaluate3.LoanToValueRatio=@(aprime,hprime,a,h,z) f_LTV(aprime,hprime,a,h,z);
+% ValuesOnGrid=EvalFnOnAgentDist_ValuesOnGrid_FHorz_Case1(Policy, FnsToEvaluate3,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
+% LoanToValueRatio = gather(ValuesOnGrid.LoanToValueRatio);
+% fprintf('min(LoanToValueRatio) = %f \n',min(LoanToValueRatio(:)))
+% fprintf('max(LoanToValueRatio) = %f \n',max(LoanToValueRatio(:)))
+% fprintf('Tot no. elements = %f \n',numel(LoanToValueRatio))
+% fprintf('How many NaNs = %f \n',nnz(isnan(LoanToValueRatio)))
+% fprintf('How many 0s = %f \n',nnz(LoanToValueRatio==0))
 
-% [V,Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid_J, pi_z_J, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
-% StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightParamNames,Policy,n_d,n_a,n_z,N_j,pi_z_J,Params,simoptions);
-% AggVars=EvalFnOnAgentDist_AggVars_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid_J,[],simoptions);
-% AllStats=EvalFnOnAgentDist_AllStats_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid_J,simoptions);
-%[V,Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
-%StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightParamNames,Policy,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
-
+%% Call AggVars and AllStats
 tic
 AggVars=EvalFnOnAgentDist_AggVars_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,[],simoptions);
 AllStats=EvalFnOnAgentDist_AllStats_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
@@ -364,7 +368,7 @@ fprintf('Ho/(A+Ho) is %2.1f%% \n',100*AggVars.H.Mean/(AggVars.A.Mean+AggVars.H.M
 fprintf('Gini for total wealth is %1.3f \n',AllStats.TotalWealth.Gini) % 0.73
 fprintf('Gini for financial wealth is %1.3f \n',GiniA2) % 0.93
 fprintf('Gini for housing is %1.3f \n',AllStats.H.Gini) % 0.52 % NOT SURE HOW RENTAL HOUSING SERVICES ARE TREATED HERE, GUESSING JUST AS ZEROS?
-fprintf('Mean loan-to-value ratio (for borrowers) is %2.1f \n',100*AggVars.LoanToValueRatio.Mean/AggVars.Homeownership.Mean) % 0.93
+fprintf('Mean loan-to-value ratio (for borrowers) is %2.1f \n',100*AggVars.LoanToValueRatio.Mean/AggVars.LTV_pos.Mean) % 0.93
 
 disp('RUNNING TIMES')
 fprintf('Time VFI: %f \n',time_vfi)
