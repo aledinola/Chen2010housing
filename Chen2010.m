@@ -8,10 +8,12 @@
 %   Chen calls the deterministic earnings as function of age epsilonj, I call it kappaj
 
 clear;clc;close all
-addpath(genpath('C:\Users\aledi\Documents\GitHub\VFIToolkit-matlab\VFIToolkit-matlab'))
+% Lenovo laptop:
+addpath(genpath('C:\Users\aledi\Documents\GitHub\VFIToolkit-matlab'))
+% Home Desktop:
 %addpath(genpath('C:\Users\aledi\OneDrive\Documents\GitHub\VFIToolkit-matlab'))
 
-%% 
+%% Grid sizes
 n_d=0; % share of time to invest in new human capital
 %n_a=[201,31]; % Assets, Housing
 n_a=[401,11]; % Assets, Housing
@@ -21,6 +23,19 @@ N_j=66; % total number of periods
 Params.agejshifter=19; % starting age 20
 % So model is annual for ages 20 to 85
 Params.J=N_j;
+
+%% Toolkit options
+vfoptions.verbose          = 1;
+vfoptions.lowmemory        = 0;
+vfoptions.divideandconquer = 1;
+vfoptions.level1n          = [9,n_a(2)];
+vfoptions.gridinterplayer  = 1;
+vfoptions.ngridinterp      = 15;
+
+simoptions=struct(); % Use default options for solving for stationary distribution
+simoptions.verbose = 0;
+simoptions.gridinterplayer = vfoptions.gridinterplayer;
+simoptions.ngridinterp     = vfoptions.ngridinterp;
 
 %% Parameters
 
@@ -240,9 +255,7 @@ w=(1-Params.alpha)*((Params.r+Params.delta_k)/Params.alpha)^(Params.alpha/(Param
 Params.b = Params.tau_p*Params.w*N_agg/fracret;
 
 %% Solve the value function
-vfoptions.divideandconquer=1;
-vfoptions.level1n=[9,n_a(2)];
-vfoptions.verbose=1;
+
 tic
 [V,Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 time_vfi=toc;
@@ -261,7 +274,7 @@ jequaloneDist=zeros([n_a,n_z],'gpuArray');
 jequaloneDist(zeroassetindex,1,:)=shiftdim(jequaloneDistz,-2); % initial dist of z, with zero assets and zero housing
 
 %% Agent distribution
-simoptions=struct(); % defaults
+
 StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightParamNames,Policy,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
 
 %% Set some FnsToEvaluate for AggVars
