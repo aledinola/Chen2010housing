@@ -26,7 +26,7 @@ Params.J=N_j;
 vfoptions.verbose          = 1;
 vfoptions.lowmemory        = 0;
 vfoptions.divideandconquer = 1;
-vfoptions.level1n          = 9;
+vfoptions.level1n          = [9,n_a(2)];
 vfoptions.gridinterplayer  = 0;
 vfoptions.ngridinterp      = 15;
 
@@ -326,8 +326,10 @@ Params.b/AgeConditionalStats.earnings.Mean(1) % 0.46, so is correct
 
 % Plot some life-cycle profiles to see more about what is going on
 simoptions=struct(); % back to defaults
-simoptions.whichstats=zeros(1,7);
-simoptions.whichstats(1) = 1; %compute only the mean
+simoptions.gridinterplayer = vfoptions.gridinterplayer;
+simoptions.ngridinterp     = vfoptions.ngridinterp;
+simoptions.whichstats      = zeros(1,7);
+simoptions.whichstats(1)   = 1; %compute only the mean
 AgeConditionalStats2=LifeCycleProfiles_FHorz_Case1(StationaryDist,Policy,FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
 
 time_life=toc;
