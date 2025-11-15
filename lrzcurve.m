@@ -16,7 +16,9 @@ end
 
 
 %% Eliminate elements with zero probability
-p1=p; p(p1==0)  = []; w(p1==0)  = [];
+p1=p; 
+p(p1==0) = []; 
+w(p1==0) = [];
 
 %% Standard Deviation
 meanw     = w'*p;

@@ -8,10 +8,8 @@
 %   Chen calls the deterministic earnings as function of age epsilonj, I call it kappaj
 
 clear;clc;close all
-% Lenovo laptop:
+% Toolkit path
 addpath(genpath('C:\Users\aledi\Documents\GitHub\VFIToolkit-matlab'))
-% Home Desktop:
-%addpath(genpath('C:\Users\aledi\OneDrive\Documents\GitHub\VFIToolkit-matlab'))
 
 %% Grid sizes
 n_d=0; % share of time to invest in new human capital
@@ -28,8 +26,8 @@ Params.J=N_j;
 vfoptions.verbose          = 1;
 vfoptions.lowmemory        = 0;
 vfoptions.divideandconquer = 1;
-vfoptions.level1n          = [9,n_a(2)];
-vfoptions.gridinterplayer  = 1;
+vfoptions.level1n          = 9;
+vfoptions.gridinterplayer  = 0;
 vfoptions.ngridinterp      = 15;
 
 simoptions=struct(); % Use default options for solving for stationary distribution
@@ -197,11 +195,11 @@ for j=1:Params.Jr-1
     var_log_z(j) = dot((z_grid_log-log_z_mean).^2,pilab(:,j));
 end
 
-figure
-plot(1:Params.Jr-1,var_log_z)
-xlabel('Age, j')
-title('Variance of log(z_t)')
-print('var_logs','-dpng')
+% figure
+% plot(1:Params.Jr-1,var_log_z)
+% xlabel('Age, j')
+% title('Variance of log(z_t)')
+% print('var_logs','-dpng')
 
 %% Age distribution
 AgeWeightParamNames={'mewj'};
@@ -277,6 +275,8 @@ jequaloneDist(zeroassetindex,1,:)=shiftdim(jequaloneDistz,-2); % initial dist of
 
 StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightParamNames,Policy,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
 
+size(StationaryDist)
+
 %% Set some FnsToEvaluate for AggVars
 FnsToEvaluate.A=@(aprime,hprime,a,h,z) a;
 FnsToEvaluate.LTV_pos=@(aprime,hprime,a,h,z) f_LTV(aprime,hprime,a,h,z)>0;
@@ -306,7 +306,7 @@ FnsToEvaluate.housingservices=@(aprime,hprime,a,h,z,kappaj,r,tau_p,theta,phi,alp
 
 %% Call AggVars and AllStats
 tic
-AggVars=EvalFnOnAgentDist_AggVars_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,[],simoptions);
+AggVars=EvalFnOnAgentDist_AggVars_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
 AllStats=EvalFnOnAgentDist_AllStats_FHorz_Case1(StationaryDist,Policy, FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
 time_stats=toc;
 
@@ -331,6 +331,15 @@ simoptions.whichstats(1) = 1; %compute only the mean
 AgeConditionalStats2=LifeCycleProfiles_FHorz_Case1(StationaryDist,Policy,FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
 
 time_life=toc;
+
+%% Display running times
+
+disp('RUNNING TIMES')
+fprintf('Time VFI: %f \n',time_vfi)
+fprintf('Time aggvars and stats: %f \n',time_stats)
+fprintf('Time life profiles: %f \n',time_life)
+
+%% Plots
 
 figure(1)
 subplot(3,1,1); plot(Params.agejshifter+Params.agej,AgeConditionalStats2.earnings.Mean)
@@ -383,10 +392,7 @@ fprintf('Gini for financial wealth is %1.3f \n',GiniA2) % 0.93
 fprintf('Gini for housing is %1.3f \n',AllStats.H.Gini) % 0.52 % NOT SURE HOW RENTAL HOUSING SERVICES ARE TREATED HERE, GUESSING JUST AS ZEROS?
 fprintf('Mean loan-to-value ratio (for borrowers) is %2.1f \n',100*AggVars.LoanToValueRatio.Mean/AggVars.LTV_pos.Mean) % 0.93
 
-disp('RUNNING TIMES')
-fprintf('Time VFI: %f \n',time_vfi)
-fprintf('Time aggvars and stats: %f \n',time_stats)
-fprintf('Time life profiles: %f \n',time_life)
+
 
 
 
